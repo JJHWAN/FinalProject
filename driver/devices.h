@@ -16,7 +16,7 @@
 
 // struct for data from user
 struct data_from_user{
-	data;
+	int data;
 };
 
 // struct for saving virtual address of Devices
