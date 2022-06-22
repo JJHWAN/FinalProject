@@ -27,7 +27,7 @@ struct device_addr{
 	unsigned char *lcd_addr; // Virtual address of FND device
 };
 
-unsigned char fpga_set_dino[10] = {
+unsigned char fpga_set_snake[10] = {
 	// memset(array,0x00,sizeof(array));
 	0x07,0x05,0x07,0x46,0x47,0x26,0x3E,0x1E,0x0C,0x00
 };
