@@ -30,8 +30,8 @@ int main(int argc, char **argv){
     }
 
     set_data.data = 1;
-    if(ioctl(fd, IOCTL_WAIT_INTR) < 0){
-        printf("Iotcl Error : CMD number 0\n");
+    if((tmp = ioctl(fd, IOCTL_WAIT_INTR)) < 0){
+        printf("Iotcl Error : CMD number %d\n", tmp);
         return -1;
     }
 
