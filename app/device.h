@@ -8,7 +8,7 @@
 
 // data from user by IOCTL_SET_OPTION
 struct data_from_user{
-    int score; // 점수
+    int data; // 점수
 };
 
 #define IOCTL_UPDATE_SCORE _IOW(DEVICE_MAJOR, 0, struct data_from_user)

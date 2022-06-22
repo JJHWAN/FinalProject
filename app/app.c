@@ -13,19 +13,10 @@
 
 int main(int argc, char **argv){
 
-    if(argc != 4){
-       	printf("Invalid Value Arguments!\n");
-		return -1;
-    }
-
-    int timer_interval = atoi(argv[1]);
-    int timer_cnt = atoi(argv[2]);
-    int init_num = atoi(argv[3]);
-
     struct data_from_user set_data;
 
-    set_data.score = 0;
-    int fd;
+    set_data.data = 1200;
+    int fd, tmp;
     fd = open(DEVICE_NAME, O_WRONLY);
 
     if(fd < 0){
@@ -38,7 +29,13 @@ int main(int argc, char **argv){
         return -1;
     }
 
+    set_data.data = 1;
     if(ioctl(fd, IOCTL_WAIT_INTR) < 0){
+        printf("Iotcl Error : CMD number 0\n");
+        return -1;
+    }
+
+    if(ioctl(fd, IOCTL_MSG, set_data) < 0){
         printf("Iotcl Error : CMD number 0\n");
         return -1;
     }

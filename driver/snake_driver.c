@@ -23,6 +23,8 @@
 
 #include "devices.h"
 
+#define DEBUG
+
 // #define DEBUG // un-comment this for debug prints
 
 // # 개발일지
@@ -80,6 +82,9 @@ irqreturn_t inter_handler_home(int irq, void *dev_id, struct pt_regs *reg)
     {
         result = 0;
         __wake_up(&wq_write, 1, 1, NULL);
+#ifdef DEBUG
+        printk("Home Button pressed and user thread released\n");
+#endif
     }
 
     return IRQ_HANDLED;
@@ -93,6 +98,9 @@ irqreturn_t inter_handler_back(int irq, void *dev_id, struct pt_regs *reg)
     {
         result = 1;
         __wake_up(&wq_write, 1, 1, NULL);
+#ifdef DEBUG
+        printk("Back Button pressed and user thread released\n");
+#endif
     }
     return IRQ_HANDLED;
 }
@@ -105,6 +113,9 @@ irqreturn_t inter_handler_vol_up(int irq, void *dev_id, struct pt_regs *reg)
     {
         result = 2;
         __wake_up(&wq_write, 1, 1, NULL);
+#ifdef DEBUG
+        printk("Vol+ Button pressed and user thread released\n");
+#endif
     }
     return IRQ_HANDLED;
 }
@@ -117,6 +128,9 @@ irqreturn_t inter_handler_vol_down(int irq, void *dev_id, struct pt_regs *reg)
     {
         result = 3;
         __wake_up(&wq_write, 1, 1, NULL);
+#ifdef DEBUG
+        printk("Vol- Button pressed and user thread released\n");
+#endif
     }
     return IRQ_HANDLED;
 }
@@ -135,10 +149,16 @@ static int snake_device_ioctl(struct file *filp, unsigned int cmd, unsigned long
         }
         write_fnd(data.data);
         result = 1;
+#ifdef DEBUG
+        printk("Updated score to %d\n", data.data);
+#endif
         break;
     case IOCTL_WAIT_INTR:
         // 현재 프로세스를 재우고, 인터럽트가 들어오면 깨워서 return
         interruptible_sleep_on(&wq_write);
+#ifdef DEBUG
+        printk("Interrupt handler end, back to Android\n", data.data);
+#endif
         break;
     case IOCTL_MSG:
         if (copy_from_user(&data, (void __user *)arg, sizeof(struct data_from_user)))
@@ -148,6 +168,9 @@ static int snake_device_ioctl(struct file *filp, unsigned int cmd, unsigned long
         }
         write_lcd(data.data);
         result = 1;
+#ifdef DEBUG
+        printk("MSG was given\n");
+#endif
         break;
     }
     return result;
@@ -299,7 +322,7 @@ static int snake_device_open(struct inode *tinode, struct file *tfile)
     driver_usage = 1;
 
     int ret, irq;
-    
+
     // register intr handlers
     gpio_direction_input(IMX_GPIO_NR(1, 11));
     irq = gpio_to_irq(IMX_GPIO_NR(1, 11));
