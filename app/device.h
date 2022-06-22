@@ -12,5 +12,4 @@ struct data_from_user{
 };
 
 #define IOCTL_UPDATE_SCORE _IOW(DEVICE_MAJOR, 0, struct data_from_user)
-#define IOCTL_WAIT_INTR _IO(DEVICE_MAJOR, 1)
-#define IOCTL_MSG _IO(DEVICE_MAJOR, 2)
+#define IOCTL_MSG _IOW(DEVICE_MAJOR, 1, struct data_from_user)

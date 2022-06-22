@@ -45,6 +45,5 @@ unsigned char lcd_game_end[] = "Game End";
 
 // values for IOCTL
 #define IOCTL_UPDATE_SCORE 0  // Ioctl func - update score (from Android)
-#define IOCTL_WAIT_INTR 1  // Ioctl func - wait for interrput (To Android)
-#define IOCTL_MSG 2
+#define IOCTL_MSG 1
 
