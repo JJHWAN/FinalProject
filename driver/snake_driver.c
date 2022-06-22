@@ -40,6 +40,7 @@
 static int snake_device_open(struct inode *, struct file *);
 static int snake_device_release(struct inode *, struct file *);
 static int snake_device_ioctl(struct file *filp, unsigned int cmd, unsigned long arg);
+static int snake_write(struct file *, const char *, size_t, loff_t *);
 
 // for writing devices (using outw)
 static void write_fnd(int cur_num);
@@ -63,7 +64,7 @@ static struct class *cls;
 
 // mapping syscall with driver functions
 static struct file_operations snake_device_fops =
-    {.open = snake_device_open, .unlocked_ioctl = snake_device_ioctl, .release = snake_device_release};
+    {.open = snake_device_open, .unlocked_ioctl = snake_device_ioctl, .write = snake_write, .release = snake_device_release};
 
 static int driver_usage = 0; // data for ensuring single use to user program
 static int flag_state = 0;   // flag for game state
@@ -135,6 +136,15 @@ irqreturn_t inter_handler_vol_down(int irq, void *dev_id, struct pt_regs *reg)
     return IRQ_HANDLED;
 }
 
+
+static int snake_write(struct file *, const char *, size_t, loff_t *){
+    interruptible_sleep_on(&wq_write);
+    #ifdef DEBUG
+        printk("Interrupt handler end, back to Android, Button number %d\n", result);
+    #endif
+    return result;
+}
+
 // IOCTL_
 static int snake_device_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
@@ -151,13 +161,6 @@ static int snake_device_ioctl(struct file *filp, unsigned int cmd, unsigned long
         result = 1;
 #ifdef DEBUG
         printk("Updated score to %d\n", data.data);
-#endif
-        break;
-    case IOCTL_WAIT_INTR:
-        // 현재 프로세스를 재우고, 인터럽트가 들어오면 깨워서 return
-        interruptible_sleep_on(&wq_write);
-#ifdef DEBUG
-        printk("Interrupt handler end, back to Android, Button number %d\n", result);
 #endif
         break;
     case IOCTL_MSG:

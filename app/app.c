@@ -29,12 +29,14 @@ int main(int argc, char **argv){
         return -1;
     }
 
-    set_data.data = 1;
-    if((tmp = ioctl(fd, IOCTL_WAIT_INTR)) < 0){
-        printf("Iotcl Error : CMD number %d\n", tmp);
+   
+    if((tmp = write(fd, " \n", 2)) < 0){
+        printf("Write Error : CMD number %d\n", tmp);
         return -1;
     }
+    printf("Write returned %d\n", tmp);
 
+    set_data.data = 1;
     if(ioctl(fd, IOCTL_MSG, set_data) < 0){
         printf("Iotcl Error : CMD number 0\n");
         return -1;
