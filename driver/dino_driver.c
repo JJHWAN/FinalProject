@@ -270,7 +270,6 @@ static int __init dino_device_init(void)
     printk("init module\n");
 #endif
     init_board();
-    
     write_dot(1);
     write_lcd(0);
     return 0;
