@@ -31,20 +31,14 @@
 static int dino_device_open(struct inode *, struct file *);
 static int dino_device_release(struct inode *, struct file *);
 static int dino_device_ioctl(struct file *filp, unsigned int cmd, unsigned long arg);
-static void dino_blink(unsigned long timeout);
-
-// set values with data given from user
-static void set_value(void);
-// update values for every time intervals
-static void update_value(void);
-// update lcd strings starting positions
-static void move_lcd(void);
 
 // for writing devices (using outw)
 static void write_fnd(int cur_num);
-static void write_dot(int cur_num);
-static void write_lcd(void);
+static void write_dot(int flag);
+static void write_lcd(int flag);
 static void write_led(int cur_num);
+
+static void init_board();
 
 static struct class *cls;
 
@@ -64,7 +58,7 @@ static int dino_device_ioctl(struct file *filp, unsigned int cmd, unsigned long 
 {
     switch (_IOC_NR(cmd))
     {
-    case IOCTL_SET_OPTION:
+    case IOCTL_UPDATE_SCORE:
         // 입력으로 들어온 argument로 timer_data를 설정해준다.
 #ifdef DEBUG
         printk("In ioctl, with SET_OPTION cmd\n");
@@ -76,7 +70,7 @@ static int dino_device_ioctl(struct file *filp, unsigned int cmd, unsigned long 
 #endif
 
         break;
-    case IOCTL_START:
+    case IOCTL_WAIT_INTR:
 
         break;
     }
@@ -146,9 +140,7 @@ static void write_dot(int flag)
 // function for writing at TEXT LCD device
 static void write_lcd(int flag)
 {
-
     // lcd 방향 및 시작 위치 조정
-
     int i, len = length_lcd[flag];
     int len_up, len_down;
     unsigned short int _s_value = 0;
@@ -162,7 +154,7 @@ static void write_lcd(int flag)
     }
 
     if(len > 16){
-        len_ up =16;
+        len_up =16;
         len_down = len - 16;
     }
     else {
@@ -215,7 +207,7 @@ static void write_led(int cur_num)
     unsigned short _s_value;
 
     _s_value = (unsigned short)(1 << (8 - cur_num));
-    if (flag_end)
+    if (flag_state)
         _s_value = 0x00;
     outw(_s_value, (unsigned int)addr.led_addr);
 }
