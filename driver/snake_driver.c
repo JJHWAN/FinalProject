@@ -136,12 +136,12 @@ irqreturn_t inter_handler_vol_down(int irq, void *dev_id, struct pt_regs *reg)
     return IRQ_HANDLED;
 }
 
-
-static int snake_write(struct file *a, const char *b, size_t c, loff_t *d){
+static int snake_write(struct file *a, const char *b, size_t c, loff_t *d)
+{
     interruptible_sleep_on(&wq_write);
-    #ifdef DEBUG
-        printk("Interrupt handler end, back to Android, Button number %d\n", result);
-    #endif
+#ifdef DEBUG
+    printk("Interrupt handler end, back to Android, Button number %d\n", result);
+#endif
     return result;
 }
 
@@ -166,7 +166,10 @@ static int snake_device_ioctl(struct file *filp, unsigned int cmd, unsigned long
     case IOCTL_MSG:
         if (copy_from_user(&data, (void __user *)arg, sizeof(struct data_from_user)))
         {
-            // 0이 아니면 실패
+// 0이 아니면 실패
+#ifdef DEBUG
+            printk("MSG failed\n");
+#endif
             return -EFAULT;
         }
         write_lcd(data.data);

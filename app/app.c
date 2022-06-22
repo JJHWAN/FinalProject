@@ -37,7 +37,8 @@ int main(int argc, char **argv){
     printf("Write returned %d\n", tmp);
 
     set_data.data = 1;
-    if(ioctl(fd, IOCTL_MSG, set_data) < 0){
+
+    if(ioctl(fd, IOCTL_MSG, &set_data) < 0){
         printf("Iotcl Error : CMD number 0\n");
         return -1;
     }
