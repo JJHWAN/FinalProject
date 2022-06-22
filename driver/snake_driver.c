@@ -137,7 +137,7 @@ irqreturn_t inter_handler_vol_down(int irq, void *dev_id, struct pt_regs *reg)
 }
 
 
-static int snake_write(struct file *, const char *, size_t, loff_t *){
+static int snake_write(struct file *a, const char *b, size_t c, loff_t *d){
     interruptible_sleep_on(&wq_write);
     #ifdef DEBUG
         printk("Interrupt handler end, back to Android, Button number %d\n", result);
