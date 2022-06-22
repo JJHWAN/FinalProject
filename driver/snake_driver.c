@@ -157,7 +157,7 @@ static int snake_device_ioctl(struct file *filp, unsigned int cmd, unsigned long
         // 현재 프로세스를 재우고, 인터럽트가 들어오면 깨워서 return
         interruptible_sleep_on(&wq_write);
 #ifdef DEBUG
-        printk("Interrupt handler end, back to Android\n", data.data);
+        printk("Interrupt handler end, back to Android, Button number %d\n", result);
 #endif
         break;
     case IOCTL_MSG:
@@ -201,7 +201,9 @@ static void write_fnd(int cur_num)
     {
         val[i] = (unsigned char)(cur_num / tmp);
         cur_num = cur_num % tmp;
+        tmp = tmp / 10;
     }
+
     val[3] = (unsigned char)cur_num;
     val_short = val[0] << 12 | val[1] << 8 | val[2] << 4 | val[3];
     outw(val_short, (unsigned int)addr.fnd_addr);
