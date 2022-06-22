@@ -1,0 +1,1 @@
+cmd_/home/embe/finalProject/driver/dino_driver.ko := arm-none-linux-gnueabi-ld -EL -r  -T /work/achroimx_kernel/scripts/module-common.lds --build-id  -o /home/embe/finalProject/driver/dino_driver.ko /home/embe/finalProject/driver/dino_driver.o /home/embe/finalProject/driver/dino_driver.mod.o
