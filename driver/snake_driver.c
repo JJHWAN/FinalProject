@@ -292,6 +292,9 @@ static void write_lcd(int flag)
             value_up[i] = lcd_game_end[i];
         for (i = 0; i < len_down; i++)
             value_down[i] = lcd_game_end[i + 16];
+        #ifdef DEBUG
+        printk("MSG was given\n");
+        #endif
         break;
     }
 
