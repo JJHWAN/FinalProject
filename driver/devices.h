@@ -11,6 +11,14 @@
 #define GAME_START 1
 #define GAME_EXIT 2
 
+#define KEY_PRESSED 0
+#define KEY_RELEASED 1
+
+// struct for data from user
+struct data_from_user{
+	data;
+};
+
 // struct for saving virtual address of Devices
 struct device_addr{
 	unsigned char *fnd_addr; // Virtual address of FND device
@@ -38,4 +46,5 @@ unsigned char lcd_game_end[] = "Game End";
 // values for IOCTL
 #define IOCTL_UPDATE_SCORE 0  // Ioctl func - update score (from Android)
 #define IOCTL_WAIT_INTR 1  // Ioctl func - wait for interrput (To Android)
+#define IOCTL_MSG 2
 

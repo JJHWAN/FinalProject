@@ -34,10 +34,10 @@
 
 // 아니면 그냥 module에서 각각 open하는 방법도..
 
-// open, close, ioctl, dino_func
-static int dino_device_open(struct inode *, struct file *);
-static int dino_device_release(struct inode *, struct file *);
-static int dino_device_ioctl(struct file *filp, unsigned int cmd, unsigned long arg);
+// open, close, ioctl, snake_func
+static int snake_device_open(struct inode *, struct file *);
+static int snake_device_release(struct inode *, struct file *);
+static int snake_device_ioctl(struct file *filp, unsigned int cmd, unsigned long arg);
 
 // for writing devices (using outw)
 static void write_fnd(int cur_num);
@@ -57,79 +57,106 @@ irqreturn_t inter_handler_vol_down(int irq, void *dev_id, struct pt_regs *reg);
 wait_queue_head_t wq_write;
 DECLARE_WAIT_QUEUE_HEAD(wq_write);
 
-
 static struct class *cls;
 
 // mapping syscall with driver functions
-static struct file_operations dino_device_fops =
-    {.open = dino_device_open, .unlocked_ioctl = dino_device_ioctl, .release = dino_device_release};
+static struct file_operations snake_device_fops =
+    {.open = snake_device_open, .unlocked_ioctl = snake_device_ioctl, .release = snake_device_release};
 
 static int driver_usage = 0; // data for ensuring single use to user program
-static int flag_state = 0;     // flag for game state
+static int flag_state = 0;   // flag for game state
 
 // object for datas
 struct device_addr addr;
+struct data_from_user data;
+
+static int result;
 
 irqreturn_t inter_handler_home(int irq, void *dev_id, struct pt_regs *reg)
 {
-	// restart button?
-	
+    // up dir
+    int input_val = gpio_get_value(IMX_GPIO_NR(1, 11));
+    if (input_val == KEY_PRESSED)
+    {
+        result = 0;
+        __wake_up(&wq_write, 1, 1, NULL);
+    }
 
-	return IRQ_HANDLED;
+    return IRQ_HANDLED;
 }
 
 irqreturn_t inter_handler_back(int irq, void *dev_id, struct pt_regs *reg)
 {
-	// 아직 미정
-
-	return IRQ_HANDLED;
+    // 아직 미정
+    int input_val = gpio_get_value(IMX_GPIO_NR(1, 12));
+    if (input_val == KEY_PRESSED)
+    {
+        result = 1;
+        __wake_up(&wq_write, 1, 1, NULL);
+    }
+    return IRQ_HANDLED;
 }
 
 irqreturn_t inter_handler_vol_up(int irq, void *dev_id, struct pt_regs *reg)
 {
-	// Jump button
-	
-	return IRQ_HANDLED;
+    // Jump button
+    int input_val = gpio_get_value(IMX_GPIO_NR(2, 15));
+    if (input_val == KEY_PRESSED)
+    {
+        result = 2;
+        __wake_up(&wq_write, 1, 1, NULL);
+    }
+    return IRQ_HANDLED;
 }
 
 irqreturn_t inter_handler_vol_down(int irq, void *dev_id, struct pt_regs *reg)
 {
-	// Crouch button
-
-	return IRQ_HANDLED;
+    // Crouch button
+    int input_val = gpio_get_value(IMX_GPIO_NR(5, 14));
+    if (input_val == KEY_PRESSED)
+    {
+        result = 3;
+        __wake_up(&wq_write, 1, 1, NULL);
+    }
+    return IRQ_HANDLED;
 }
 
-
-
 // IOCTL_
-static int dino_device_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+static int snake_device_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
     switch (_IOC_NR(cmd))
     {
     case IOCTL_UPDATE_SCORE:
-        // 입력으로 들어온 argument로 timer_data를 설정해준다.
-#ifdef DEBUG
-        printk("In ioctl, with SET_OPTION cmd\n");
-#endif
-
-#ifdef DEBUG
-        printk("Data copy sucess in setting options\n");
-        printk("timer_interval : %d, timer_cnt : %d, init_num : %d\n", data.timer_interval, data.timer_cnt, data.init_num);
-#endif
-
+        // copy arg(data from user) to data
+        if (copy_from_user(&data, (void __user *)arg, sizeof(struct data_from_user)))
+        {
+            // 0이 아니면 실패
+            return -EFAULT;
+        }
+        write_fnd(data.data);
+        result = 1;
         break;
     case IOCTL_WAIT_INTR:
-
+        // 현재 프로세스를 재우고, 인터럽트가 들어오면 깨워서 return
+        interruptible_sleep_on(&wq_write);
+        break;
+    case IOCTL_MSG:
+        if (copy_from_user(&data, (void __user *)arg, sizeof(struct data_from_user)))
+        {
+            // 0이 아니면 실패
+            return -EFAULT;
+        }
+        write_lcd(data.data);
+        result = 1;
         break;
     }
-
-    return 1;
+    return result;
 }
 
 // function that inits flag_state, and output devices
 static void init_board()
 {
-    flag_state = 0;    // set flag_end to 0
+    flag_state = 0; // set flag_end to 0
     write_fnd(0);
     write_dot(0);
     write_lcd(0);
@@ -158,7 +185,7 @@ static void write_fnd(int cur_num)
 }
 
 // function for writing at DOT device
-// if flag == GAME_START, write Dino
+// if flag == GAME_START, write snake
 // else write blank
 static void write_dot(int flag)
 {
@@ -171,7 +198,7 @@ static void write_dot(int flag)
     case GAME_START:
         for (i = 0; i < 10; i++)
         {
-            _s_value = fpga_set_dino[i] & 0x7F;
+            _s_value = fpga_set_snake[i] & 0x7F;
             outw(_s_value, (unsigned int)addr.dot_addr + i * 2);
         }
         break;
@@ -201,11 +228,13 @@ static void write_lcd(int flag)
         value_down[i] = ' ';
     }
 
-    if(len > 16){
-        len_up =16;
+    if (len > 16)
+    {
+        len_up = 16;
         len_down = len - 16;
     }
-    else {
+    else
+    {
         len_up = len;
         len_down = 0;
     }
@@ -215,22 +244,22 @@ static void write_lcd(int flag)
     case GAME_READY:
         for (i = 0; i < len_up; i++)
             value_up[i] = lcd_game_ready[i];
-        for(i=0;i<len_down;i++)
+        for (i = 0; i < len_down; i++)
             value_down[i] = lcd_game_ready[i + 16];
         break;
     case GAME_START:
         /* code */
         for (i = 0; i < len_up; i++)
             value_up[i] = lcd_game_start[i];
-        for(i=0;i<len_down;i++)
+        for (i = 0; i < len_down; i++)
             value_down[i] = lcd_game_start[i + 16];
-        
+
         break;
     case GAME_EXIT:
         /* code */
         for (i = 0; i < len_up; i++)
             value_up[i] = lcd_game_end[i];
-        for(i=0;i<len_down;i++)
+        for (i = 0; i < len_down; i++)
             value_down[i] = lcd_game_end[i + 16];
         break;
     }
@@ -246,7 +275,6 @@ static void write_lcd(int flag)
         _s_value = (value_down[i] & 0xFF) << 8 | (value_down[i + 1] & 0xFF);
         outw(_s_value, (unsigned int)addr.lcd_addr + i + 16);
     }
-    
 }
 
 // function for writing at TEXT LED device
@@ -260,7 +288,7 @@ static void write_led(int cur_num)
     outw(_s_value, (unsigned int)addr.led_addr);
 }
 
-static int dino_device_open(struct inode *tinode, struct file *tfile)
+static int snake_device_open(struct inode *tinode, struct file *tfile)
 {
     if (driver_usage != 0)
         return -EBUSY;
@@ -272,33 +300,32 @@ static int dino_device_open(struct inode *tinode, struct file *tfile)
 
     // register intr handlers
     gpio_direction_input(IMX_GPIO_NR(1, 11));
-	irq = gpio_to_irq(IMX_GPIO_NR(1, 11));
-	// printk(KERN_ALERT "IRQ Number : %d\n", irq);
-	ret = request_irq(irq, inter_handler_home, IRQF_TRIGGER_FALLING, "home", 0);
+    irq = gpio_to_irq(IMX_GPIO_NR(1, 11));
+    // printk(KERN_ALERT "IRQ Number : %d\n", irq);
+    ret = request_irq(irq, inter_handler_home, IRQF_TRIGGER_FALLING, "home", 0);
 
-	// intr_handler for back key
-	gpio_direction_input(IMX_GPIO_NR(1, 12));
-	irq = gpio_to_irq(IMX_GPIO_NR(1, 12));
-	// printk(KERN_ALERT "IRQ Number : %d\n", irq);
-	ret = request_irq(irq, inter_handler_back, IRQF_TRIGGER_FALLING, "back", 0);
+    // intr_handler for back key
+    gpio_direction_input(IMX_GPIO_NR(1, 12));
+    irq = gpio_to_irq(IMX_GPIO_NR(1, 12));
+    // printk(KERN_ALERT "IRQ Number : %d\n", irq);
+    ret = request_irq(irq, inter_handler_back, IRQF_TRIGGER_FALLING, "back", 0);
 
-	// intr_handler for vol up key
-	gpio_direction_input(IMX_GPIO_NR(2, 15));
-	irq = gpio_to_irq(IMX_GPIO_NR(2, 15));
-	// printk(KERN_ALERT "IRQ Number : %d\n", irq);
-	ret = request_irq(irq, inter_handler_vol_up, IRQF_TRIGGER_FALLING, "volup", 0);
+    // intr_handler for vol up key
+    gpio_direction_input(IMX_GPIO_NR(2, 15));
+    irq = gpio_to_irq(IMX_GPIO_NR(2, 15));
+    // printk(KERN_ALERT "IRQ Number : %d\n", irq);
+    ret = request_irq(irq, inter_handler_vol_up, IRQF_TRIGGER_FALLING, "volup", 0);
 
-	// intr_handler for vol down key
-	gpio_direction_input(IMX_GPIO_NR(5, 14));
-	irq = gpio_to_irq(IMX_GPIO_NR(5, 14));
-	// printk(KERN_ALERT "IRQ Number : %d\n", irq);
-	ret = request_irq(irq, inter_handler_vol_down, IRQF_TRIGGER_FALLING | IRQF_TRIGGER_RISING, "voldown", 0);
-
+    // intr_handler for vol down key
+    gpio_direction_input(IMX_GPIO_NR(5, 14));
+    irq = gpio_to_irq(IMX_GPIO_NR(5, 14));
+    // printk(KERN_ALERT "IRQ Number : %d\n", irq);
+    ret = request_irq(irq, inter_handler_vol_down, IRQF_TRIGGER_FALLING | IRQF_TRIGGER_RISING, "voldown", 0);
 
     return 0;
 }
 
-static int dino_device_release(struct inode *tinode, struct file *tfile)
+static int snake_device_release(struct inode *tinode, struct file *tfile)
 {
     driver_usage = 0;
 #ifdef DEBUG
@@ -308,12 +335,12 @@ static int dino_device_release(struct inode *tinode, struct file *tfile)
 }
 
 // init module and ioremap devices
-static int __init dino_device_init(void)
+static int __init snake_device_init(void)
 {
     int result;
 
     // register device
-    result = register_chrdev(DEVICE_MAJOR, DEVICE_NAME, &dino_device_fops);
+    result = register_chrdev(DEVICE_MAJOR, DEVICE_NAME, &snake_device_fops);
     if (result < 0)
     {
         printk("error %d\n", result);
@@ -323,7 +350,6 @@ static int __init dino_device_init(void)
     // for replacing mknod
     cls = class_create(THIS_MODULE, DEVICE_NAME);
     device_create(cls, NULL, MKDEV(DEVICE_MAJOR, DEVICE_MINOR), NULL, DEVICE_NAME);
-
 
     // map physical addr of devices to virtual kernel addr
     addr.fnd_addr = ioremap(IOM_FND_ADDRESS, 0x4);
@@ -342,13 +368,13 @@ static int __init dino_device_init(void)
 }
 
 // exit module and iounmap devices
-static void __exit dino_device_exit(void)
+static void __exit snake_device_exit(void)
 {
     // free intr handlers
     free_irq(gpio_to_irq(IMX_GPIO_NR(1, 11)), NULL);
-	free_irq(gpio_to_irq(IMX_GPIO_NR(1, 12)), NULL);
-	free_irq(gpio_to_irq(IMX_GPIO_NR(2, 15)), NULL);
-	free_irq(gpio_to_irq(IMX_GPIO_NR(5, 14)), NULL);
+    free_irq(gpio_to_irq(IMX_GPIO_NR(1, 12)), NULL);
+    free_irq(gpio_to_irq(IMX_GPIO_NR(2, 15)), NULL);
+    free_irq(gpio_to_irq(IMX_GPIO_NR(5, 14)), NULL);
 
     // unmap physical addr of devices and virtual kernel addr
     iounmap(addr.fnd_addr);
@@ -367,7 +393,7 @@ static void __exit dino_device_exit(void)
 #endif
 }
 
-module_init(dino_device_init);
-module_exit(dino_device_exit);
+module_init(snake_device_init);
+module_exit(snake_device_exit);
 
 MODULE_LICENSE("GPL");
