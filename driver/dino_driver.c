@@ -1,4 +1,6 @@
 #include <linux/module.h>
+#include <linux/kernel.h>
+
 #include <linux/fs.h>
 #include <linux/init.h>
 #include <linux/slab.h>
@@ -7,12 +9,17 @@
 
 #include <asm/io.h>
 #include <asm/uaccess.h>
-#include <linux/kernel.h>
+
 #include <linux/ioport.h>
 #include <linux/module.h>
-#include <linux/fs.h>
-#include <linux/init.h>
 #include <linux/version.h>
+
+#include <linux/interrupt.h>
+#include <asm/irq.h>
+#include <mach/gpio.h>
+#include <asm/gpio.h>
+#include <linux/ioport.h>
+#include <linux/cdev.h>
 
 #include "devices.h"
 
@@ -40,6 +47,17 @@ static void write_led(int cur_num);
 
 static void init_board();
 
+// interrput handlers
+irqreturn_t inter_handler_home(int irq, void *dev_id, struct pt_regs *reg);
+irqreturn_t inter_handler_back(int irq, void *dev_id, struct pt_regs *reg);
+irqreturn_t inter_handler_vol_up(int irq, void *dev_id, struct pt_regs *reg);
+irqreturn_t inter_handler_vol_down(int irq, void *dev_id, struct pt_regs *reg);
+
+// Declare wait queue for user application to wait
+wait_queue_head_t wq_write;
+DECLARE_WAIT_QUEUE_HEAD(wq_write);
+
+
 static struct class *cls;
 
 // mapping syscall with driver functions
@@ -51,6 +69,36 @@ static int flag_state = 0;     // flag for game state
 
 // object for datas
 struct device_addr addr;
+
+irqreturn_t inter_handler_home(int irq, void *dev_id, struct pt_regs *reg)
+{
+	// restart button?
+	
+
+	return IRQ_HANDLED;
+}
+
+irqreturn_t inter_handler_back(int irq, void *dev_id, struct pt_regs *reg)
+{
+	// 아직 미정
+
+	return IRQ_HANDLED;
+}
+
+irqreturn_t inter_handler_vol_up(int irq, void *dev_id, struct pt_regs *reg)
+{
+	// Jump button
+	
+	return IRQ_HANDLED;
+}
+
+irqreturn_t inter_handler_vol_down(int irq, void *dev_id, struct pt_regs *reg)
+{
+	// Crouch button
+
+	return IRQ_HANDLED;
+}
+
 
 
 // IOCTL_
@@ -221,6 +269,32 @@ static int dino_device_open(struct inode *tinode, struct file *tfile)
     printk("Device Opened\n");
 #endif
     driver_usage = 1;
+
+    // register intr handlers
+    gpio_direction_input(IMX_GPIO_NR(1, 11));
+	irq = gpio_to_irq(IMX_GPIO_NR(1, 11));
+	// printk(KERN_ALERT "IRQ Number : %d\n", irq);
+	ret = request_irq(irq, inter_handler_home, IRQF_TRIGGER_FALLING, "home", 0);
+
+	// intr_handler for back key
+	gpio_direction_input(IMX_GPIO_NR(1, 12));
+	irq = gpio_to_irq(IMX_GPIO_NR(1, 12));
+	// printk(KERN_ALERT "IRQ Number : %d\n", irq);
+	ret = request_irq(irq, inter_handler_back, IRQF_TRIGGER_FALLING, "back", 0);
+
+	// intr_handler for vol up key
+	gpio_direction_input(IMX_GPIO_NR(2, 15));
+	irq = gpio_to_irq(IMX_GPIO_NR(2, 15));
+	// printk(KERN_ALERT "IRQ Number : %d\n", irq);
+	ret = request_irq(irq, inter_handler_vol_up, IRQF_TRIGGER_FALLING, "volup", 0);
+
+	// intr_handler for vol down key
+	gpio_direction_input(IMX_GPIO_NR(5, 14));
+	irq = gpio_to_irq(IMX_GPIO_NR(5, 14));
+	// printk(KERN_ALERT "IRQ Number : %d\n", irq);
+	ret = request_irq(irq, inter_handler_vol_down, IRQF_TRIGGER_FALLING | IRQF_TRIGGER_RISING, "voldown", 0);
+
+
     return 0;
 }
 
@@ -270,6 +344,11 @@ static int __init dino_device_init(void)
 // exit module and iounmap devices
 static void __exit dino_device_exit(void)
 {
+    // free intr handlers
+    free_irq(gpio_to_irq(IMX_GPIO_NR(1, 11)), NULL);
+	free_irq(gpio_to_irq(IMX_GPIO_NR(1, 12)), NULL);
+	free_irq(gpio_to_irq(IMX_GPIO_NR(2, 15)), NULL);
+	free_irq(gpio_to_irq(IMX_GPIO_NR(5, 14)), NULL);
 
     // unmap physical addr of devices and virtual kernel addr
     iounmap(addr.fnd_addr);
