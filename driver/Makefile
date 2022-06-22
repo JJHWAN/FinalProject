@@ -9,7 +9,7 @@ default:
 
 push: default
 	@echo ">>> Pushing build file to ARM board..."
-	adb push ./dino_driver.ko /data/local/tmp
+	adb push ./snake_driver.ko /data/local/tmp
 	@echo ">>> PUSH COMPLETE"
 
 clean:
