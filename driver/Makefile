@@ -1,4 +1,4 @@
-obj-m = dino_driver.o 
+obj-m = snake_driver.o 
 CC := arm-none-linux-gnueabi-gcc -static -Wall -lm
 
 KDIR    :=/work/achroimx_kernel

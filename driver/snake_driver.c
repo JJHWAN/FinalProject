@@ -298,6 +298,8 @@ static int snake_device_open(struct inode *tinode, struct file *tfile)
 #endif
     driver_usage = 1;
 
+    int ret, irq;
+    
     // register intr handlers
     gpio_direction_input(IMX_GPIO_NR(1, 11));
     irq = gpio_to_irq(IMX_GPIO_NR(1, 11));
